@@ -4,6 +4,7 @@
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
 require 'test/unit'
+require 'fileutils'
 require 'flexmock'
 require 'drb'
 require 'paypal'
