@@ -1,0 +1,6 @@
+--- 
+drb_uris: 
+  de.oddb.org: druby://localhost:39198
+  ch.oddb.org: druby://localhost:43749
+error_recipients: []
+
