@@ -20,7 +20,7 @@ module YIPN
     'smtp_server'      => 'localhost',
   }
   config = RCLConf::RCLConf.new(ARGV, defaults)
-  config.load(config.config)
+  config.load(config.config, :trusted => true)
 
   @config = config
 
