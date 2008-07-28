@@ -28,11 +28,14 @@ begin
   src = $stdin.read(content_length)
   notify = Paypal::Notification.new(src)
 
-  if notify.complete? && notify.acknowledge
+  if notify.complete?
     drb_uris = config.drb_uris
     target = drb_uris[notify.params['custom']]
     DRb::DRbObject.new(nil, target).ipn(notify)
     request.status = 200
+    unless(notify.acknowledge)
+      raise "Failed to verify Paypal IPN - Access granted!"
+    end
   else
     request.status = 200
     raise "Failed to verify Paypal IPN"
