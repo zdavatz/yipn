@@ -32,7 +32,7 @@ begin
 
   if notify.complete?
     drb_uris = config.drb_uris
-    target = drb_uris[notify.params['custom']]
+    target = drb_uris[notify.params['custom']] || drb_uris['ch.oddb.org']
     DRb::DRbObject.new(nil, target).ipn(notify)
     request.status = 200
     unless(notify.acknowledge)
@@ -59,7 +59,7 @@ rescue StandardError => error
       mail.delivery_method :test
     end  
     mail.deliver
-    $stderr.puts "Delivered #{Mail::TestMailer.deliveries.size} e-mail(s)"
+    $stderr.puts "Delivered #{Mail::TestMailer.deliveries.size} e-mail(s) to #{mail.to}"
   end
   request.server.log_error(error.class.to_s)
   request.server.log_error(error.message)
