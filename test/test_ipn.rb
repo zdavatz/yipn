@@ -3,15 +3,17 @@
 
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'test/unit'
+require "minitest/autorun"
 require 'fileutils'
 require 'flexmock'
 require 'drb'
 require 'paypal'
 require 'net/smtp'
+require 'mail'
+require 'yaml'
 
 module YIPN
-  class TestIpn < Test::Unit::TestCase
+  class TestIpn < Minitest::Test
     class Request
       include DRb::DRbUndumped
       attr_accessor :status, :request_method, :body
@@ -38,6 +40,9 @@ module YIPN
       end
       def send_http_header
       end
+      def sent_mails # for unit testing
+        Mail::TestMailer.deliveries
+      end
     end
     class Client
       attr_reader :notification
@@ -52,16 +57,19 @@ module YIPN
       @config = File.expand_path('etc/yipn.yml', File.dirname(__FILE__))
       @defaults = {
         "drb_uris" => [],
-        "error_recipients" => [], # since the tested script runs in a 
-                                  # separate process, don't send any mail
+        "error_recipients" => ['root'],
+        "mail_from" => 'info@test.com',
       }
       ENV['DOCUMENT_ROOT'] = File.expand_path('doc', File.dirname(__FILE__))
+      ENV['MINITEST'] = 'true' # for sending mail
       @request = Request.new
       @service = DRb.start_service('druby://localhost:0', @request)
       @lib = File.expand_path('../lib', File.dirname(__FILE__))
       @body = <<-EOS
 payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlumpf&residence_country=CH&item_name=unlimited+access&payment_gross=&mc_currency=EUR&business=hannes.wyss%40gmail.com&payment_type=instant&verify_sign=AQU0e5vuZCvSg-XJploSa.sGUDlpAoVH4GXMGblXrYaf583nKz5FE4Wp&payer_status=verified&test_ipn=1&tax=0.00&payer_email=schlumpfine.schlumpf%40schlumpfhausen.org&txn_id=4R001344FM5198836&quantity=1&receiver_email=hannes.wyss%40gmail.com&first_name=Schlumpfine&invoice=929a63c9f90923d0b13d4ce5c83468f6&payer_id=BZH9BSGVSTQR2&receiver_id=P2YNHYXAJERLL&item_number=929a63c9f90923d0b13d4ce5c83468f6&payment_status=Completed&payment_fee=&mc_fee=16.53&shipping=0.00&mc_gross=476.00&custom=de.oddb.org&charset=windows-1252&notify_version=2.4
       EOS
+      Mail.defaults do delivery_method :test end
+      Mail::TestMailer.deliveries.clear
       super
     end
     def run_script method = 'POST', body = ''
@@ -73,6 +81,7 @@ payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlu
         io.close_write
         io.read }
     end
+if true 
     def test_get
       run_script 'GET'
       assert_equal(0, $?)
@@ -97,6 +106,7 @@ payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlu
       }
       drb_de.stop_service
       run_script 'POST', @body
+      mails_sent = Mail::TestMailer.deliveries
       assert_equal(0, $?)
       assert_equal(500, @request.status)
       assert_nil client_de.notification
@@ -119,6 +129,28 @@ payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlu
       assert_instance_of Paypal::Notification, client_de.notification
       assert_nil client_ch.notification
     end
+end    
+    def test_send_mail
+      begin
+        raise StandardError
+        rescue StandardError => error
+        notify = 'demo-notify'
+        mail = Mail.new
+        mail.from    'info@test.com'
+        mail.to      ['root']
+        mail.subject "IPN Error: #{error.message}"
+        mail.body    sprintf "Error: %s - %s\n\nIPN:\n%s\n\nBacktrace:%s",
+                              error.class, error.message, notify.pretty_inspect,
+                              error.backtrace.join("\n")
+
+        Mail.defaults do delivery_method :test end
+        Mail::TestMailer.deliveries.clear
+        mail.delivery_method :test
+        assert_equal(0, Mail::TestMailer.deliveries.size)
+        mail.deliver
+        assert_equal(1, Mail::TestMailer.deliveries.size)
+      end
+    end
     def test_post__incomplete
       body = <<-EOS
 payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlumpf&residence_country=CH&item_name=unlimited+access&payment_gross=&mc_currency=EUR&business=hannes.wyss%40gmail.com&payment_type=instant&verify_sign=AQU0e5vuZCvSg-XJploSa.sGUDlpAoVH4GXMGblXrYaf583nKz5FE4Wp&payer_status=verified&test_ipn=1&tax=0.00&payer_email=schlumpfine.schlumpf%40schlumpfhausen.org&txn_id=4R001344FM5198836&quantity=1&receiver_email=hannes.wyss%40gmail.com&first_name=Schlumpfine&invoice=929a63c9f90923d0b13d4ce5c83468f6&payer_id=BZH9BSGVSTQR2&receiver_id=P2YNHYXAJERLL&item_number=929a63c9f90923d0b13d4ce5c83468f6&payment_status=Invalid&payment_fee=&mc_fee=16.53&shipping=0.00&mc_gross=476.00&custom=de.oddb.org&charset=windows-1252&notify_version=2.4
@@ -133,11 +165,13 @@ payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlu
           'de.oddb.org' => drb_de.uri, 
           'ch.oddb.org' => drb_ch.uri }).to_yaml )
       }
-      run_script 'POST', body
+      res = run_script 'POST', body
       assert_equal(0, $?)
       assert_equal(200, @request.status)
       assert_nil client_de.notification
       assert_nil client_ch.notification
+      # we cannot test sending e-mails directly
+      # assert_equal(1, Mail::TestMailer.deliveries.size)
     end
   end
 end

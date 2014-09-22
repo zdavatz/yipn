@@ -3,6 +3,8 @@
 require 'rubygems'
 require 'drb'
 require 'paypal'
+require 'pp'
+require 'mail'
 require 'yipn/config'
 
 request = Apache.request
@@ -44,26 +46,20 @@ begin
 rescue StandardError => error
   recipients = YIPN.config.error_recipients
   unless(recipients.empty?)
-    require 'pp'
-    require 'rmail'
-    require 'net/smtp'
-    mpart = RMail::Message.new
-    header = mpart.header
-    header.to = recipients
-    header.from = config.mail_from
-    header.subject = "IPN Error: #{error.message}"
-    header.date = Time.now
-    header.add('Content-Type', 'text/plain', nil, 
-               'charset' => config.mail_charset)
-    mpart.body = sprintf "Error: %s - %s\n\nIPN:\n%s\n\nBacktrace:%s",
-                         error.class, error.message, notify.pretty_inspect,
-                         error.backtrace.join("\n")
-    smtp = Net::SMTP.new(config.smtp_server)
-    smtp.start {
-      recipients.each { |recipient|
-        smtp.sendmail(mpart.to_s, config.smtp_from, recipient)
-      }
-    }
+    mail = Mail.new
+    mail.from    config.mail_from
+    mail.to      recipients
+    mail.subject "IPN Error: #{error.message}"
+    mail.body    sprintf "Error: %s - %s\n\nIPN:\n%s\n\nBacktrace:%s",
+                          error.class, error.message, notify.pretty_inspect,
+                          error.backtrace.join("\n")
+    if ENV['MINITEST']
+      Mail.defaults do delivery_method :test end
+      Mail::TestMailer.deliveries.clear
+      mail.delivery_method :test
+    end  
+    mail.deliver
+    $stderr.puts "Delivered #{Mail::TestMailer.deliveries.size} e-mail(s)"
   end
   request.server.log_error(error.class.to_s)
   request.server.log_error(error.message)
