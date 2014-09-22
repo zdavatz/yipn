@@ -1,0 +1,10 @@
+language: ruby
+bundler_args: --without debugger
+rvm:
+  - 1.9.3
+script:
+  - bundle exec rake test
+notifications:
+  email:
+    recipients:
+      - ngiger@ywesee.com
