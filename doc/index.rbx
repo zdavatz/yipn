@@ -46,6 +46,15 @@ begin
 rescue StandardError => error
   recipients = YIPN.config.error_recipients
   unless(recipients.empty?)
+    Mail.defaults do
+      delivery_method :smtp, {
+        :address        => config.smtp_server,
+        :port           => config.smtp_port,
+        :domain         => config.smtp_domain,
+        :user_name      => config.smtp_user,
+        :password       => config.smtp_pass,
+      }
+    end
     mail = Mail.new
     mail.from    config.mail_from
     mail.to      recipients
