@@ -40,9 +40,6 @@ module YIPN
       end
       def send_http_header
       end
-      def sent_mails # for unit testing
-        Mail::TestMailer.deliveries
-      end
     end
     class Client
       attr_reader :notification
@@ -68,8 +65,6 @@ module YIPN
       @body = <<-EOS
 payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlumpf&residence_country=CH&item_name=unlimited+access&payment_gross=&mc_currency=EUR&business=hannes.wyss%40gmail.com&payment_type=instant&verify_sign=AQU0e5vuZCvSg-XJploSa.sGUDlpAoVH4GXMGblXrYaf583nKz5FE4Wp&payer_status=verified&test_ipn=1&tax=0.00&payer_email=schlumpfine.schlumpf%40schlumpfhausen.org&txn_id=4R001344FM5198836&quantity=1&receiver_email=hannes.wyss%40gmail.com&first_name=Schlumpfine&invoice=929a63c9f90923d0b13d4ce5c83468f6&payer_id=BZH9BSGVSTQR2&receiver_id=P2YNHYXAJERLL&item_number=929a63c9f90923d0b13d4ce5c83468f6&payment_status=Completed&payment_fee=&mc_fee=16.53&shipping=0.00&mc_gross=476.00&custom=de.oddb.org&charset=windows-1252&notify_version=2.4
       EOS
-      Mail.defaults do delivery_method :test end
-      Mail::TestMailer.deliveries.clear
       super
     end
     def run_script method = 'POST', body = ''
@@ -81,7 +76,6 @@ payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlu
         io.close_write
         io.read }
     end
-if true 
     def test_get
       run_script 'GET'
       assert_equal(0, $?)
@@ -106,7 +100,6 @@ if true
       }
       drb_de.stop_service
       run_script 'POST', @body
-      mails_sent = Mail::TestMailer.deliveries
       assert_equal(0, $?)
       assert_equal(500, @request.status)
       assert_nil client_de.notification
@@ -173,5 +166,4 @@ payment_date=05%3A17%3A56+Jan+29%2C+2008+PST&txn_type=web_accept&last_name=Schlu
       # we cannot test sending e-mails directly
       # assert_equal(1, Mail::TestMailer.deliveries.size)
     end
-  end
 end
