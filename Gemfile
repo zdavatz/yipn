@@ -1,17 +1,17 @@
 source "http://rubygems.org"
 if /^2/.match(RUBY_VERSION)
-  ruby '2.1.2'
-  gem 'dbi', :git => 'https://github.com/ngiger/ruby-dbi'
-  gem 'syck'
+  gem 'paypal'
+elsif /^1\.8/.match(RUBY_VERSION)
+  gem "mime-types", "~> 1.16"
+  gem 'paypal', '2.0.0'
 else
   ruby "1.9.3"
-  gem 'dbi', :git => 'https://github.com/ngiger/ruby-dbi'
+  gem 'paypal', '2.0.0'
 end
 
-gem 'paypal', '2.0.0'
-gem 'mail' , '2.2.7'
-gem 'money' # , '6.0.1'
+gem 'activesupport'
 gem 'rclconf', '1.0.0'
+gem 'mail'
 
 group :development, :test do
   gem "rake"
@@ -24,14 +24,12 @@ end
 group :test do
   gem 'rspec'
   gem 'minitest-should_syntax'
-  gem 'watir'
-  gem 'watir-webdriver'
-  gem 'page-object'
 end
 
 group :debugger do
 if /^2/.match(RUBY_VERSION)
   gem 'pry-byebug'
+elsif /^1\.8/.match(RUBY_VERSION)
 else
   gem 'pry-debugger'
 end

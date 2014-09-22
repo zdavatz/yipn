@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
-require 'rubygems'
 require 'drb'
+require 'active_support/core_ext/class/attribute_accessors'
 require 'paypal'
 require 'pp'
 require 'mail'

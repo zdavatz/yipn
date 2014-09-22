@@ -7,6 +7,7 @@ require "minitest/autorun"
 require 'fileutils'
 require 'flexmock'
 require 'drb'
+require 'active_support/core_ext/class/attribute_accessors'
 require 'paypal'
 require 'net/smtp'
 require 'mail'
