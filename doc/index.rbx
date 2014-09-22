@@ -1,8 +1,10 @@
 #!/usr/bin/env ruby
 
-require 'rubygems'
 require 'drb'
+require 'active_support/core_ext/class/attribute_accessors'
 require 'paypal'
+require 'pp'
+require 'mail'
 require 'yipn/config'
 
 request = Apache.request
@@ -30,7 +32,7 @@ begin
 
   if notify.complete?
     drb_uris = config.drb_uris
-    target = drb_uris[notify.params['custom']]
+    target = drb_uris[notify.params['custom']] || drb_uris['ch.oddb.org']
     DRb::DRbObject.new(nil, target).ipn(notify)
     request.status = 200
     unless(notify.acknowledge)
@@ -44,26 +46,29 @@ begin
 rescue StandardError => error
   recipients = YIPN.config.error_recipients
   unless(recipients.empty?)
-    require 'pp'
-    require 'rmail'
-    require 'net/smtp'
-    mpart = RMail::Message.new
-    header = mpart.header
-    header.to = recipients
-    header.from = config.mail_from
-    header.subject = "IPN Error: #{error.message}"
-    header.date = Time.now
-    header.add('Content-Type', 'text/plain', nil, 
-               'charset' => config.mail_charset)
-    mpart.body = sprintf "Error: %s - %s\n\nIPN:\n%s\n\nBacktrace:%s",
-                         error.class, error.message, notify.pretty_inspect,
-                         error.backtrace.join("\n")
-    smtp = Net::SMTP.new(config.smtp_server)
-    smtp.start {
-      recipients.each { |recipient|
-        smtp.sendmail(mpart.to_s, config.smtp_from, recipient)
+    Mail.defaults do
+      delivery_method :smtp, {
+        :address        => config.smtp_server,
+        :port           => config.smtp_port,
+        :domain         => config.smtp_domain,
+        :user_name      => config.smtp_user,
+        :password       => config.smtp_pass,
       }
-    }
+    end
+    mail = Mail.new
+    mail.from    config.mail_from
+    mail.to      recipients
+    mail.subject "IPN Error: #{error.message}"
+    mail.body    sprintf "Error: %s - %s\n\nIPN:\n%s\n\nBacktrace:%s",
+                          error.class, error.message, notify.pretty_inspect,
+                          error.backtrace.join("\n")
+    if ENV['MINITEST']
+      Mail.defaults do delivery_method :test end
+      Mail::TestMailer.deliveries.clear
+      mail.delivery_method :test
+    end  
+    mail.deliver
+    $stderr.puts "Delivered #{Mail::TestMailer.deliveries.size} e-mail(s) to #{mail.to}"
   end
   request.server.log_error(error.class.to_s)
   request.server.log_error(error.message)

@@ -18,6 +18,10 @@ module YIPN
     'mail_from'        => '"IPN (PayPal -> ywesee)" <ipn@ywesee.com>',
     'smtp_from'        => 'ipn@ywesee.com',
     'smtp_server'      => 'localhost',
+    'smtp_port'      => '587',
+    'smtp_domain'      => 'ywesee.com',
+    'smtp_user'      => 'smtp',
+    'smtp_pass'      => 'top-secret',
   }
   config = RCLConf::RCLConf.new(ARGV, defaults)
   config.load(config.config, :trusted => true)
@@ -27,4 +31,5 @@ module YIPN
   class << self
     attr_accessor :config
   end
+  
 end
